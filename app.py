@@ -16,7 +16,9 @@ import anthropic
 import openai
 import google.generativeai as genai
 
+# Load from project .env first, then fall back to ~/.llm-router.env
 load_dotenv()
+load_dotenv(Path.home() / ".llm-router.env")
 
 app = FastAPI(title="Jarvis", version="2.0.0")
 
