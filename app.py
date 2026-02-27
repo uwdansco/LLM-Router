@@ -48,6 +48,10 @@ GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN", "")
 
+# TenantStack Blog API
+TENANTSTACK_BLOG_API_KEY = os.getenv("TENANTSTACK_BLOG_API_KEY", "")
+TENANTSTACK_BLOG_URL     = "https://tsikzygmwawvxheisdhc.supabase.co/functions/v1/blog-api"
+
 
 # ─────────────────────────────────────────────
 # ROUTING LOGIC — Claude Haiku as the router
@@ -64,6 +68,8 @@ Options:
 - **email_read**: User wants to read, check, or browse their emails or inbox (e.g. "check my email", "any new emails", "what's in my inbox")
 - **email_send**: User wants to compose and send a new email to someone (e.g. "send an email to X", "email John about Y")
 - **email_reply**: User wants to reply to an existing email (e.g. "reply to Sarah's email", "respond to the email about X")
+- **blog_write**: User wants to write AND publish (or draft) a blog post for TenantStack (e.g. "write a blog post about X", "post to TenantStack about Y", "draft a blog post on Z")
+- **blog_list**: User wants to see recent blog posts on TenantStack (e.g. "show me recent TenantStack posts", "list my blog posts")
 
 Rules:
 1. If the question mentions "latest", "current", "today", "recently", "news", "price", "score" → lean toward perplexity
@@ -71,10 +77,11 @@ Rules:
 3. If the question is creative or conversational → lean toward gpt4
 4. If the question involves calendar, schedule, events, meetings → calendar_read or calendar_create
 5. If the question involves email, inbox, sending messages → email_read, email_send, or email_reply
-6. Default to claude for complex analytical tasks
+6. If the question involves writing or posting a blog post, TenantStack blog → blog_write or blog_list
+7. Default to claude for complex analytical tasks
 
 Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
-{{"llm": "perplexity|gemini|gpt4|claude|calendar_read|calendar_create|email_read|email_send|email_reply", "reason": "one sentence explanation"}}
+{{"llm": "perplexity|gemini|gpt4|claude|calendar_read|calendar_create|email_read|email_send|email_reply|blog_write|blog_list", "reason": "one sentence explanation"}}
 
 Question/Task: {question}"""
 
@@ -99,7 +106,8 @@ def route_question(question: str) -> tuple[str, str]:
         reason = result.get("reason", "Best overall model for this task")
         valid = ["perplexity", "gemini", "gpt4", "claude",
                  "calendar_read", "calendar_create",
-                 "email_read", "email_send", "email_reply"]
+                 "email_read", "email_send", "email_reply",
+                 "blog_write", "blog_list"]
         if llm not in valid:
             llm = "claude"
         return llm, reason
@@ -188,7 +196,14 @@ LLM_COLORS = {
     "email_read": "#EA4335",
     "email_send": "#EA4335",
     "email_reply": "#EA4335",
+    "blog_write": "#6366f1",
+    "blog_list":  "#6366f1",
 }
+
+LLM_DISPLAY_NAMES.update({
+    "blog_write": "TenantStack Blog",
+    "blog_list":  "TenantStack Blog",
+})
 
 
 # ─────────────────────────────────────────────
@@ -606,12 +621,187 @@ def handle_email_reply(question: str) -> str:
         return f"Sorry, I couldn't send the reply: {e}"
 
 
+# ─────────────────────────────────────────────
+# TENANTSTACK BLOG FUNCTIONS
+# ─────────────────────────────────────────────
+
+TENANTSTACK_WRITER_PROMPT = """You are the lead content writer for TenantStack, a modern property management software platform.
+
+AUDIENCE:
+- Property management companies (small to enterprise)
+- Real estate investors with multiple properties
+- Property investment companies
+- Landlords who own 2+ rental properties
+
+TONE: Professional, engaging, and with a dry wit. You write like the smartest, most experienced person at a property management industry conference — someone who clearly knows their stuff but isn't afraid to crack a joke about a nightmare tenant story. Never stuffy. Never boring. No corporate buzzword soup.
+
+STYLE RULES:
+- Open with a hook — a surprising stat, a relatable pain point, or a sharp one-liner
+- Use "you" and "your" to speak directly to the reader
+- Short paragraphs (2-4 sentences max)
+- Subheadings should be specific and benefit-driven (not just "Introduction")
+- Include at least one piece of practical, immediately actionable advice per section
+- Occasional humor is welcome but never forced
+- End with a clear takeaway or call-to-action related to TenantStack
+
+SEO:
+- Naturally weave in property management keywords
+- Title should be specific, benefit-driven, and under 65 characters if possible
+- Aim for 900-1200 words of content
+
+OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
+{
+  "title": "Post title here",
+  "slug": "post-title-here",
+  "excerpt": "2-sentence compelling summary for previews and SEO (under 160 chars)",
+  "category_slug": "one of: tips, guides, industry-news, technology, finance, tenant-management, maintenance",
+  "content": "<full HTML content using <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em> tags>"
+}"""
+
+
+def slugify(text: str) -> str:
+    """Convert a title to a URL-friendly slug."""
+    import re
+    text = text.lower().strip()
+    text = re.sub(r"[^\w\s-]", "", text)
+    text = re.sub(r"[\s_-]+", "-", text)
+    text = re.sub(r"^-+|-+$", "", text)
+    return text[:80]
+
+
+def write_blog_post(topic: str, status: str = "published") -> dict:
+    """Use Claude to write a TenantStack blog post and post it via the API."""
+    if not TENANTSTACK_BLOG_API_KEY:
+        raise ValueError("TENANTSTACK_BLOG_API_KEY not configured")
+
+    # Step 1 — Write the post with Claude
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    user_prompt = f"Write a blog post about: {topic}\n\nRemember to follow all tone, style, and format rules."
+
+    message = client.messages.create(
+        model="claude-opus-4-5-20251101",
+        max_tokens=4000,
+        system=TENANTSTACK_WRITER_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+
+    raw = message.content[0].text.strip()
+    # Strip any accidental markdown fences
+    if raw.startswith("```"):
+        parts = raw.split("```")
+        raw = parts[1] if len(parts) > 1 else raw
+        if raw.startswith("json"):
+            raw = raw[4:]
+    post_data = json.loads(raw.strip())
+
+    # Ensure slug is clean
+    if not post_data.get("slug"):
+        post_data["slug"] = slugify(post_data.get("title", topic))
+
+    # Step 2 — Post to the TenantStack Blog API
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": TENANTSTACK_BLOG_API_KEY,
+    }
+    payload = {
+        "title":         post_data["title"],
+        "slug":          post_data["slug"],
+        "excerpt":       post_data.get("excerpt", ""),
+        "content":       post_data["content"],
+        "category_slug": post_data.get("category_slug", "tips"),
+        "author":        "Jarvis",
+        "status":        status,
+    }
+    response = requests.post(TENANTSTACK_BLOG_URL, json=payload, headers=headers, timeout=30)
+    response.raise_for_status()
+    result = response.json()
+
+    return {
+        "title":    post_data["title"],
+        "slug":     post_data["slug"],
+        "excerpt":  post_data.get("excerpt", ""),
+        "category": post_data.get("category_slug", "tips"),
+        "status":   status,
+        "api_result": result,
+    }
+
+
+def list_blog_posts(status: str = "published") -> list:
+    """Fetch recent posts from the TenantStack Blog API."""
+    if not TENANTSTACK_BLOG_API_KEY:
+        return []
+    headers = {"x-api-key": TENANTSTACK_BLOG_API_KEY}
+    response = requests.get(
+        TENANTSTACK_BLOG_URL,
+        params={"status": status},
+        headers=headers,
+        timeout=15,
+    )
+    response.raise_for_status()
+    data = response.json()
+    # API may return a list directly or {"posts": [...]}
+    if isinstance(data, list):
+        return data
+    return data.get("posts", data.get("data", []))
+
+
+def handle_blog_write(question: str) -> str:
+    """Detect draft vs publish intent, write the post, and return a confirmation."""
+    if not TENANTSTACK_BLOG_API_KEY:
+        return (
+            "The TenantStack Blog API key isn't configured yet. "
+            "Add `TENANTSTACK_BLOG_API_KEY` to your `~/.llm-router.env` file."
+        )
+    # Detect if user wants a draft
+    q_lower = question.lower()
+    status = "draft" if any(w in q_lower for w in ["draft", "save as draft", "don't publish", "do not publish"]) else "published"
+
+    try:
+        result = write_blog_post(question, status=status)
+        status_label = "📝 Saved as draft" if status == "draft" else "🚀 Published live"
+        return (
+            f"{status_label} on **blog.tenantstack.com**\n\n"
+            f"**{result['title']}**\n"
+            f"_{result['excerpt']}_\n\n"
+            f"Category: `{result['category']}`\n"
+            f"Slug: `{result['slug']}`"
+        )
+    except Exception as e:
+        return f"Sorry, I couldn't post to the TenantStack blog: {e}"
+
+
+def handle_blog_list(_question: str) -> str:
+    """Return a formatted list of recent TenantStack blog posts."""
+    if not TENANTSTACK_BLOG_API_KEY:
+        return "The TenantStack Blog API key isn't configured yet."
+    try:
+        posts = list_blog_posts()
+        if not posts:
+            return "No published posts found on the TenantStack blog yet."
+        lines = [f"**{len(posts)} post(s) on blog.tenantstack.com:**\n"]
+        for i, p in enumerate(posts[:10], 1):
+            title   = p.get("title", "(no title)")
+            slug    = p.get("slug", "")
+            excerpt = p.get("excerpt", "")[:100]
+            lines.append(f"**{i}. {title}**")
+            if excerpt:
+                lines.append(f"_{excerpt}_")
+            if slug:
+                lines.append(f"🔗 blog.tenantstack.com/{slug}")
+            lines.append("")
+        return "\n".join(lines).strip()
+    except Exception as e:
+        return f"Couldn't fetch blog posts: {e}"
+
+
 GOOGLE_ACTION_HANDLERS = {
     "calendar_read":   lambda q: handle_calendar_read(),
     "calendar_create": handle_calendar_create,
     "email_read":      lambda q: handle_email_read(),
     "email_send":      handle_email_send,
     "email_reply":     handle_email_reply,
+    "blog_write":      handle_blog_write,
+    "blog_list":       handle_blog_list,
 }
 
 
