@@ -52,6 +52,10 @@ GOOGLE_REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN", "")
 TENANTSTACK_BLOG_API_KEY = os.getenv("TENANTSTACK_BLOG_API_KEY", "")
 TENANTSTACK_BLOG_URL     = "https://tsikzygmwawvxheisdhc.supabase.co/functions/v1/blog-api"
 
+# PhysicianPad Blog API
+PHYSICIANPAD_BLOG_API_KEY = os.getenv("PHYSICIANPAD_BLOG_API_KEY", "")
+PHYSICIANPAD_BLOG_URL     = "https://blog.physicianpad.com/api/admin/posts"
+
 
 # ─────────────────────────────────────────────
 # ROUTING LOGIC — Claude Haiku as the router
@@ -70,6 +74,8 @@ Options:
 - **email_reply**: User wants to reply to an existing email (e.g. "reply to Sarah's email", "respond to the email about X")
 - **blog_write**: User wants to write AND publish (or draft) a blog post for TenantStack (e.g. "write a blog post about X", "post to TenantStack about Y", "draft a blog post on Z")
 - **blog_list**: User wants to see recent blog posts on TenantStack (e.g. "show me recent TenantStack posts", "list my blog posts")
+- **physicianpad_write**: User wants to write AND publish (or draft) a blog post for PhysicianPad (e.g. "write a PhysicianPad post about X", "post to PhysicianPad about Y", "blog post for physicians about Z")
+- **physicianpad_list**: User wants to see recent PhysicianPad blog posts (e.g. "show PhysicianPad posts", "list PhysicianPad blog")
 
 Rules:
 1. If the question mentions "latest", "current", "today", "recently", "news", "price", "score" → lean toward perplexity
@@ -77,11 +83,12 @@ Rules:
 3. If the question is creative or conversational → lean toward gpt4
 4. If the question involves calendar, schedule, events, meetings → calendar_read or calendar_create
 5. If the question involves email, inbox, sending messages → email_read, email_send, or email_reply
-6. If the question involves writing or posting a blog post, TenantStack blog → blog_write or blog_list
-7. Default to claude for complex analytical tasks
+6. If the question involves writing or posting a blog post for TenantStack → blog_write or blog_list
+7. If the question involves writing or posting a blog post for PhysicianPad, physicians, medical scribing → physicianpad_write or physicianpad_list
+8. Default to claude for complex analytical tasks
 
 Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
-{{"llm": "perplexity|gemini|gpt4|claude|calendar_read|calendar_create|email_read|email_send|email_reply|blog_write|blog_list", "reason": "one sentence explanation"}}
+{{"llm": "perplexity|gemini|gpt4|claude|calendar_read|calendar_create|email_read|email_send|email_reply|blog_write|blog_list|physicianpad_write|physicianpad_list", "reason": "one sentence explanation"}}
 
 Question/Task: {question}"""
 
@@ -107,7 +114,8 @@ def route_question(question: str) -> tuple[str, str]:
         valid = ["perplexity", "gemini", "gpt4", "claude",
                  "calendar_read", "calendar_create",
                  "email_read", "email_send", "email_reply",
-                 "blog_write", "blog_list"]
+                 "blog_write", "blog_list",
+                 "physicianpad_write", "physicianpad_list"]
         if llm not in valid:
             llm = "claude"
         return llm, reason
@@ -201,8 +209,15 @@ LLM_COLORS = {
 }
 
 LLM_DISPLAY_NAMES.update({
-    "blog_write": "TenantStack Blog",
-    "blog_list":  "TenantStack Blog",
+    "blog_write":        "TenantStack Blog",
+    "blog_list":         "TenantStack Blog",
+    "physicianpad_write": "PhysicianPad Blog",
+    "physicianpad_list":  "PhysicianPad Blog",
+})
+
+LLM_COLORS.update({
+    "physicianpad_write": "#0ea5e9",
+    "physicianpad_list":  "#0ea5e9",
 })
 
 
@@ -794,14 +809,187 @@ def handle_blog_list(_question: str) -> str:
         return f"Couldn't fetch blog posts: {e}"
 
 
+# ─────────────────────────────────────────────
+# PHYSICIANPAD BLOG FUNCTIONS
+# ─────────────────────────────────────────────
+
+PHYSICIANPAD_WRITER_PROMPT = """You are the lead content writer for PhysicianPad, an AI-powered medical scribing software that helps clinicians spend less time on documentation and more time with patients.
+
+AUDIENCE:
+- Primary care physicians (family medicine, internal medicine)
+- Therapists and mental health counselors
+- Psychiatrists
+- Chiropractors
+- Dentists and dental practitioners
+
+TONE: Professional, engaging, and with a touch of dry humor. You write like a brilliant colleague who has survived the EHR wars and lived to tell the tale. You understand clinical workflows intimately — the frustration of charting at midnight, the joy of leaving the office on time for once. You're never condescending, always practical, and occasionally funny in the way only someone who's sat in a clinical setting can be. No hollow buzzwords. No preachy wellness talk.
+
+STYLE RULES:
+- Open with a hook that resonates with clinician pain (documentation burden, burnout, lost time)
+- Speak directly to the reader using "you" and "your practice"
+- Short paragraphs — clinicians are busy people, they skim
+- Subheadings that are specific and benefit-driven
+- Concrete, actionable takeaways in every section
+- Occasional clinical humor is welcome (think: "Yes, SOAP notes at 11pm again")
+- End with a natural call-to-action toward PhysicianPad
+
+TOPICS TO DRAW FROM:
+- AI medical scribing and ambient documentation
+- Reducing physician burnout and documentation burden
+- EHR efficiency tips (Epic, Athena, Cerner, etc.)
+- Patient-physician interaction improvements
+- Billing and coding accuracy
+- Clinical workflow optimization
+- Telehealth documentation
+- Mental health documentation challenges
+- Specialty-specific documentation tips (chiropractic SOAP notes, dental charting, therapy progress notes)
+
+SEO:
+- Weave in keywords naturally: AI scribe, medical documentation, physician burnout, EHR, clinical notes
+- Title should be specific, benefit-driven, under 65 characters if possible
+- Aim for 900-1200 words
+
+OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
+{
+  "title": "Post title here",
+  "slug": "post-title-here",
+  "excerpt": "2-sentence compelling summary (under 160 chars)",
+  "category": "one of: Efficiency, AI & Technology, Burnout & Wellness, Billing & Coding, Clinical Tips, Telehealth, Mental Health, Specialty Care",
+  "authorName": "Dr. Sarah Chen",
+  "authorRole": "Chief Medical Officer",
+  "content": "<full HTML content using <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em> tags>"
+}"""
+
+
+def write_physicianpad_post(topic: str, status: str = "published") -> dict:
+    """Use Claude to write a PhysicianPad blog post and publish via the API."""
+    if not PHYSICIANPAD_BLOG_API_KEY:
+        raise ValueError("PHYSICIANPAD_BLOG_API_KEY not configured")
+
+    # Step 1 — Write the post with Claude
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    user_prompt = f"Write a blog post about: {topic}\n\nFollow all tone, style, and format rules."
+
+    message = client.messages.create(
+        model="claude-opus-4-5-20251101",
+        max_tokens=4000,
+        system=PHYSICIANPAD_WRITER_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+
+    raw = message.content[0].text.strip()
+    if raw.startswith("```"):
+        parts = raw.split("```")
+        raw = parts[1] if len(parts) > 1 else raw
+        if raw.startswith("json"):
+            raw = raw[4:]
+    post_data = json.loads(raw.strip())
+
+    if not post_data.get("slug"):
+        post_data["slug"] = slugify(post_data.get("title", topic))
+
+    # Estimate read time (avg 200 words/min)
+    word_count = len(post_data.get("content", "").split())
+    read_time = f"{max(1, round(word_count / 200))} min read"
+
+    # Step 2 — Post to PhysicianPad Blog API
+    headers = {
+        "Content-Type": "application/json",
+        "X-Api-Key": PHYSICIANPAD_BLOG_API_KEY,
+    }
+    payload = {
+        "title":      post_data["title"],
+        "slug":       post_data["slug"],
+        "excerpt":    post_data.get("excerpt", ""),
+        "content":    post_data["content"],
+        "category":   post_data.get("category", "Efficiency"),
+        "status":     status,
+        "authorName": post_data.get("authorName", "Dr. Sarah Chen"),
+        "authorRole": post_data.get("authorRole", "Chief Medical Officer"),
+        "readTime":   read_time,
+        "featured":   False,
+    }
+    response = requests.post(PHYSICIANPAD_BLOG_URL, json=payload, headers=headers, timeout=30)
+    response.raise_for_status()
+
+    return {
+        "title":    post_data["title"],
+        "slug":     post_data["slug"],
+        "excerpt":  post_data.get("excerpt", ""),
+        "category": post_data.get("category", "Efficiency"),
+        "readTime": read_time,
+        "status":   status,
+    }
+
+
+def list_physicianpad_posts() -> list:
+    """Fetch recent PhysicianPad blog posts."""
+    if not PHYSICIANPAD_BLOG_API_KEY:
+        return []
+    headers = {"X-Api-Key": PHYSICIANPAD_BLOG_API_KEY}
+    response = requests.get(PHYSICIANPAD_BLOG_URL, headers=headers, timeout=15)
+    response.raise_for_status()
+    data = response.json()
+    if isinstance(data, list):
+        return data
+    return data.get("posts", data.get("data", []))
+
+
+def handle_physicianpad_write(question: str) -> str:
+    if not PHYSICIANPAD_BLOG_API_KEY:
+        return "The PhysicianPad Blog API key isn't configured. Add `PHYSICIANPAD_BLOG_API_KEY` to your `~/.llm-router.env` file."
+    q_lower = question.lower()
+    status = "draft" if any(w in q_lower for w in ["draft", "save as draft", "don't publish", "do not publish"]) else "published"
+    try:
+        result = write_physicianpad_post(question, status=status)
+        status_label = "📝 Saved as draft" if status == "draft" else "🚀 Published live"
+        return (
+            f"{status_label} on **blog.physicianpad.com**\n\n"
+            f"**{result['title']}**\n"
+            f"_{result['excerpt']}_\n\n"
+            f"Category: `{result['category']}`  ·  {result['readTime']}\n"
+            f"Slug: `{result['slug']}`"
+        )
+    except Exception as e:
+        return f"Sorry, I couldn't post to the PhysicianPad blog: {e}"
+
+
+def handle_physicianpad_list(_question: str) -> str:
+    if not PHYSICIANPAD_BLOG_API_KEY:
+        return "The PhysicianPad Blog API key isn't configured."
+    try:
+        posts = list_physicianpad_posts()
+        if not posts:
+            return "No posts found on the PhysicianPad blog yet."
+        lines = [f"**{len(posts)} post(s) on blog.physicianpad.com:**\n"]
+        for i, p in enumerate(posts[:10], 1):
+            title   = p.get("title", "(no title)")
+            slug    = p.get("slug", "")
+            excerpt = p.get("excerpt", "")[:100]
+            category = p.get("category", "")
+            lines.append(f"**{i}. {title}**")
+            if category:
+                lines.append(f"_{category}_")
+            if excerpt:
+                lines.append(f"{excerpt}...")
+            if slug:
+                lines.append(f"🔗 blog.physicianpad.com/{slug}")
+            lines.append("")
+        return "\n".join(lines).strip()
+    except Exception as e:
+        return f"Couldn't fetch PhysicianPad posts: {e}"
+
+
 GOOGLE_ACTION_HANDLERS = {
-    "calendar_read":   lambda q: handle_calendar_read(),
-    "calendar_create": handle_calendar_create,
-    "email_read":      lambda q: handle_email_read(),
-    "email_send":      handle_email_send,
-    "email_reply":     handle_email_reply,
-    "blog_write":      handle_blog_write,
-    "blog_list":       handle_blog_list,
+    "calendar_read":      lambda q: handle_calendar_read(),
+    "calendar_create":    handle_calendar_create,
+    "email_read":         lambda q: handle_email_read(),
+    "email_send":         handle_email_send,
+    "email_reply":        handle_email_reply,
+    "blog_write":         handle_blog_write,
+    "blog_list":          handle_blog_list,
+    "physicianpad_write": handle_physicianpad_write,
+    "physicianpad_list":  handle_physicianpad_list,
 }
 
 
