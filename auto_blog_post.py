@@ -78,26 +78,27 @@ def pick_topic(blog: str, topic_pool: list[str]) -> str:
 # ── TenantStack ───────────────────────────────────────────────────────────────
 
 TENANTSTACK_TOPICS = [
+    # Long-tail, SEO-optimized topic angles — each maps to a target keyword cluster
     "How to screen tenants without violating fair housing laws",
-    "5 lease clauses every landlord should stop ignoring",
-    "The real cost of a bad tenant (and how to avoid them)",
+    "Property management software for small landlords: what to look for",
+    "How to collect rent online as a landlord (and actually get paid on time)",
     "How to raise rent without losing good tenants",
-    "Property management software: what to look for in 2025",
-    "Short-term vs long-term rentals: which is right for your portfolio",
+    "How to manage rental properties without a property manager",
+    "How to handle difficult tenants professionally and legally",
     "How to handle maintenance requests before they become emergencies",
     "Security deposit mistakes landlords keep making",
-    "Building a tenant retention strategy that actually works",
-    "How to scale from 1 property to 10 without losing your mind",
-    "Late rent: when to call, when to text, when to serve notice",
-    "The landlord's guide to property inspections",
-    "Self-managing vs hiring a property manager: a real breakdown",
+    "How to reduce tenant turnover: a landlord retention strategy that works",
+    "How to scale a rental portfolio from 1 property to 10",
+    "Late rent payments: when to call, when to text, when to serve notice",
+    "How to track rental income and expenses without a spreadsheet",
+    "Self-managing vs hiring a property manager: a real cost breakdown",
     "How to write a rental listing that attracts quality tenants",
-    "Eviction prevention: the early warning signs every landlord should know",
+    "Eviction prevention: early warning signs every landlord should know",
     "Tax deductions rental property owners consistently miss",
-    "How AI is changing property management in 2025",
+    "How AI property management tools are changing the landlord game in 2025",
     "What tenants actually want (and why it matters to your bottom line)",
-    "Rent collection best practices for multi-property landlords",
-    "How to handle difficult tenants professionally and legally",
+    "Landlord tenant screening checklist: what to check before signing a lease",
+    "Best property management app for independent landlords with 1-10 units",
 ]
 
 TENANTSTACK_WRITER_PROMPT = """You are the lead content writer for TenantStack, a modern property management software platform.
@@ -119,10 +120,50 @@ STYLE RULES:
 - Occasional humor is welcome but never forced
 - End with a clear takeaway or call-to-action related to TenantStack
 
-SEO:
-- Naturally weave in property management keywords
-- Title should be specific, benefit-driven, and under 65 characters if possible
+SEO — CRITICAL:
+You MUST naturally integrate relevant keywords from the TARGET KEYWORDS list below into every post. Do not stuff them — weave them in where they fit naturally, like a skilled writer would. The goal is to rank on Google for these terms.
+
+TARGET KEYWORDS (use a mix of 6-10 per post, based on the topic):
+
+PRIMARY (highest search intent — use at least 2-3 per post):
+- property management software
+- landlord software
+- rental property management
+- tenant screening
+- property management tips
+- how to manage rental properties
+- property management for landlords
+- rent collection software
+
+LONG-TAIL / LOW COMPETITION (use 3-5 per post — these rank faster):
+- property management software for small landlords
+- how to screen tenants without violating fair housing laws
+- how to collect rent online as a landlord
+- property management software for 1-10 units
+- how to handle late rent payments
+- how to raise rent without losing tenants
+- how to reduce tenant turnover
+- rental property accounting and expense tracking
+- what software do landlords use to manage tenants
+- how to manage rental properties without a property manager
+- landlord tenant screening checklist
+- how to handle difficult tenants legally
+- property management app for independent landlords
+- AI property management tools for landlords
+- how to scale a rental portfolio
+
+KEYWORD PLACEMENT RULES:
+- Include the primary keyword or a close variant in the H1 title
+- Use at least one long-tail keyword in an H2 subheading
+- Weave keywords naturally into the first 100 words of the intro
+- Use keywords in the excerpt/meta description
+- Do NOT repeat the exact same phrase more than twice in one post
+
+SEO STRUCTURE:
+- Title: specific, benefit-driven, includes a target keyword, under 65 characters if possible
+- Excerpt: 2-sentence meta description containing a primary keyword (under 160 chars)
 - Aim for 900-1200 words of content
+- Use FAQ-style subheadings when appropriate (e.g. "How do landlords screen tenants?") — these rank for featured snippets
 
 OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
 {
@@ -167,26 +208,27 @@ def post_to_tenantstack(topic: str) -> dict:
 # ── PhysicianPad ──────────────────────────────────────────────────────────────
 
 PHYSICIANPAD_TOPICS = [
+    # Long-tail, SEO-optimized topic angles — each maps to a target keyword cluster
+    "AI scribe for chiropractors: faster SOAP notes without the midnight catch-up",
     "How AI scribing is giving physicians 2 hours back every day",
     "The hidden cost of manual charting (it's more than you think)",
-    "SOAP notes for chiropractors: a faster, smarter workflow",
-    "How to cut therapy progress note time in half",
-    "Dental charting in the AI era: what's changing",
+    "AI scribe for therapists: how to cut therapy progress note time in half",
+    "AI medical scribe for dentists: what's changing in dental documentation",
     "Physician burnout and documentation: breaking the midnight charting cycle",
-    "How ambient AI documentation works — and why it's different",
-    "EHR efficiency tips every primary care physician needs",
-    "Telehealth documentation: common mistakes and how to fix them",
-    "How psychiatrists can streamline session notes without losing detail",
-    "AI scribing vs traditional transcription: a real comparison",
-    "The future of clinical documentation: where we're headed by 2026",
+    "How ambient AI documentation works — and why it's different from transcription",
+    "EHR efficiency tips every primary care physician needs in 2025",
+    "Telehealth documentation tips: common mistakes and how to fix them",
+    "How psychiatrists can streamline session notes with AI scribing",
+    "AI medical scribe vs traditional transcription: a real comparison",
+    "How to reduce after-hours charting as a primary care physician",
     "How to improve patient engagement by spending less time on charts",
     "Billing accuracy and AI scribing: what the data shows",
-    "Documentation compliance for mental health practitioners",
-    "What primary care physicians wish their EHR could do",
-    "How to onboard your practice to AI scribing without disruption",
+    "Ambient AI documentation for mental health practitioners",
     "The ROI of AI medical scribing for small practices",
-    "Reducing after-hours charting: strategies that actually work",
-    "How AI is closing the documentation gap in underserved communities",
+    "How to onboard your practice to an AI scribe without disruption",
+    "Best AI scribe for small medical practices: what to look for",
+    "How long should clinical notes take? A benchmark for busy clinicians",
+    "How AI is reducing physician burnout through smarter documentation",
 ]
 
 PHYSICIANPAD_WRITER_PROMPT = """You are the lead content writer for PhysicianPad, an AI-powered medical scribing software that helps clinicians spend less time on documentation and more time with patients.
@@ -209,10 +251,50 @@ STYLE RULES:
 - Occasional clinical humor is welcome (think: "Yes, SOAP notes at 11pm again")
 - End with a natural call-to-action toward PhysicianPad
 
-SEO:
-- Weave in keywords naturally: AI scribe, medical documentation, physician burnout, EHR, clinical notes
-- Title under 65 characters if possible
-- Aim for 900-1200 words
+SEO — CRITICAL:
+You MUST naturally integrate relevant keywords from the TARGET KEYWORDS list below into every post. Do not stuff them — weave them in where they fit naturally. The goal is to rank on Google for these specific terms, especially the long-tail specialty ones where competition is very low.
+
+TARGET KEYWORDS (use a mix of 6-10 per post, based on the topic):
+
+PRIMARY (highest search volume — use at least 2-3 per post):
+- AI medical scribe
+- AI scribe
+- medical documentation software
+- ambient documentation
+- physician burnout
+- clinical documentation
+- EHR efficiency
+- reduce charting time
+
+LONG-TAIL / LOW COMPETITION — SPECIALTY (use 3-5 per post — these rank fastest):
+- AI scribe for chiropractors
+- AI medical scribe for therapists
+- AI SOAP note generator for chiropractors
+- ambient AI documentation for mental health
+- AI scribe for small medical practices
+- how to reduce after-hours charting
+- best AI scribe for primary care physicians
+- telehealth documentation tips for clinicians
+- reduce physician burnout with AI documentation
+- AI medical scribe for dentists
+- how to speed up clinical notes
+- AI scribe for therapy progress notes
+- how long should clinical notes take
+- medical scribing software for psychiatrists
+- ambient AI vs traditional transcription
+
+KEYWORD PLACEMENT RULES:
+- Include the primary keyword or a close variant in the H1 title
+- Use at least one specialty-specific long-tail keyword in an H2 subheading
+- Weave keywords naturally into the first 100 words of the intro
+- Use keywords in the excerpt/meta description
+- Do NOT repeat the exact same phrase more than twice in one post
+
+SEO STRUCTURE:
+- Title: specific, benefit-driven, includes a target keyword, under 65 characters if possible
+- Excerpt: 2-sentence meta description containing a primary keyword (under 160 chars)
+- Aim for 900-1200 words of content
+- Use FAQ-style subheadings when appropriate (e.g. "Does AI scribing work for chiropractors?") — these rank for featured snippets and AI search results
 
 OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
 {

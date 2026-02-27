@@ -659,10 +659,50 @@ STYLE RULES:
 - Occasional humor is welcome but never forced
 - End with a clear takeaway or call-to-action related to TenantStack
 
-SEO:
-- Naturally weave in property management keywords
-- Title should be specific, benefit-driven, and under 65 characters if possible
+SEO — CRITICAL:
+You MUST naturally integrate relevant keywords from the TARGET KEYWORDS list below into every post. Do not stuff them — weave them in where they fit naturally, like a skilled writer would. The goal is to rank on Google for these terms.
+
+TARGET KEYWORDS (use a mix of 6-10 per post, based on the topic):
+
+PRIMARY (highest search intent — use at least 2-3 per post):
+- property management software
+- landlord software
+- rental property management
+- tenant screening
+- property management tips
+- how to manage rental properties
+- property management for landlords
+- rent collection software
+
+LONG-TAIL / LOW COMPETITION (use 3-5 per post — these rank faster):
+- property management software for small landlords
+- how to screen tenants without violating fair housing laws
+- how to collect rent online as a landlord
+- property management software for 1-10 units
+- how to handle late rent payments
+- how to raise rent without losing tenants
+- how to reduce tenant turnover
+- rental property accounting and expense tracking
+- what software do landlords use to manage tenants
+- how to manage rental properties without a property manager
+- landlord tenant screening checklist
+- how to handle difficult tenants legally
+- property management app for independent landlords
+- AI property management tools for landlords
+- how to scale a rental portfolio
+
+KEYWORD PLACEMENT RULES:
+- Include the primary keyword or a close variant in the H1 title
+- Use at least one long-tail keyword in an H2 subheading
+- Weave keywords naturally into the first 100 words of the intro
+- Use keywords in the excerpt/meta description
+- Do NOT repeat the exact same phrase more than twice in one post
+
+SEO STRUCTURE:
+- Title: specific, benefit-driven, includes a target keyword, under 65 characters if possible
+- Excerpt: 2-sentence meta description containing a primary keyword (under 160 chars)
 - Aim for 900-1200 words of content
+- Use FAQ-style subheadings when appropriate (e.g. "How do landlords screen tenants?") — these rank for featured snippets
 
 OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
 {
@@ -844,10 +884,50 @@ TOPICS TO DRAW FROM:
 - Mental health documentation challenges
 - Specialty-specific documentation tips (chiropractic SOAP notes, dental charting, therapy progress notes)
 
-SEO:
-- Weave in keywords naturally: AI scribe, medical documentation, physician burnout, EHR, clinical notes
-- Title should be specific, benefit-driven, under 65 characters if possible
-- Aim for 900-1200 words
+SEO — CRITICAL:
+You MUST naturally integrate relevant keywords from the TARGET KEYWORDS list below into every post. Do not stuff them — weave them in where they fit naturally. The goal is to rank on Google for these specific terms, especially the long-tail specialty ones where competition is very low.
+
+TARGET KEYWORDS (use a mix of 6-10 per post, based on the topic):
+
+PRIMARY (highest search volume — use at least 2-3 per post):
+- AI medical scribe
+- AI scribe
+- medical documentation software
+- ambient documentation
+- physician burnout
+- clinical documentation
+- EHR efficiency
+- reduce charting time
+
+LONG-TAIL / LOW COMPETITION — SPECIALTY (use 3-5 per post — these rank fastest):
+- AI scribe for chiropractors
+- AI medical scribe for therapists
+- AI SOAP note generator for chiropractors
+- ambient AI documentation for mental health
+- AI scribe for small medical practices
+- how to reduce after-hours charting
+- best AI scribe for primary care physicians
+- telehealth documentation tips for clinicians
+- reduce physician burnout with AI documentation
+- AI medical scribe for dentists
+- how to speed up clinical notes
+- AI scribe for therapy progress notes
+- how long should clinical notes take
+- medical scribing software for psychiatrists
+- ambient AI vs traditional transcription
+
+KEYWORD PLACEMENT RULES:
+- Include the primary keyword or a close variant in the H1 title
+- Use at least one specialty-specific long-tail keyword in an H2 subheading
+- Weave keywords naturally into the first 100 words of the intro
+- Use keywords in the excerpt/meta description
+- Do NOT repeat the exact same phrase more than twice in one post
+
+SEO STRUCTURE:
+- Title: specific, benefit-driven, includes a target keyword, under 65 characters if possible
+- Excerpt: 2-sentence meta description containing a primary keyword (under 160 chars)
+- Aim for 900-1200 words of content
+- Use FAQ-style subheadings when appropriate (e.g. "Does AI scribing work for chiropractors?") — these rank for featured snippets and AI search results
 
 OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
 {
