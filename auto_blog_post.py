@@ -24,9 +24,10 @@ import anthropic
 load_dotenv()
 load_dotenv(Path.home() / ".llm-router.env")
 
-ANTHROPIC_API_KEY         = os.getenv("ANTHROPIC_API_KEY", "")
-TENANTSTACK_BLOG_API_KEY  = os.getenv("TENANTSTACK_BLOG_API_KEY", "")
-TENANTSTACK_BLOG_URL      = "https://tsikzygmwawvxheisdhc.supabase.co/functions/v1/blog-api"
+ANTHROPIC_API_KEY             = os.getenv("ANTHROPIC_API_KEY", "")
+TENANTSTACK_BLOG_API_KEY      = os.getenv("TENANTSTACK_BLOG_API_KEY", "")
+TENANTSTACK_SUPABASE_ANON_KEY = os.getenv("TENANTSTACK_SUPABASE_ANON_KEY", "")
+TENANTSTACK_BLOG_URL          = "https://tsikzygmwawvxheisdhc.supabase.co/functions/v1/blog-api"
 PHYSICIANPAD_BLOG_API_KEY = os.getenv("PHYSICIANPAD_BLOG_API_KEY", "")
 PHYSICIANPAD_BLOG_URL     = "https://blog.physicianpad.com/api/admin/posts"
 
@@ -189,7 +190,11 @@ def post_to_tenantstack(topic: str) -> dict:
     if not post.get("slug"):
         post["slug"] = slugify(post.get("title", topic))
 
-    headers = {"Content-Type": "application/json", "x-api-key": TENANTSTACK_BLOG_API_KEY}
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": TENANTSTACK_BLOG_API_KEY,
+        "Authorization": f"Bearer {TENANTSTACK_SUPABASE_ANON_KEY}",
+    }
     payload = {
         "title":         post["title"],
         "slug":          post["slug"],

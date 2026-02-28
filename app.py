@@ -49,8 +49,9 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN", "")
 
 # TenantStack Blog API
-TENANTSTACK_BLOG_API_KEY = os.getenv("TENANTSTACK_BLOG_API_KEY", "")
-TENANTSTACK_BLOG_URL     = "https://tsikzygmwawvxheisdhc.supabase.co/functions/v1/blog-api"
+TENANTSTACK_BLOG_API_KEY      = os.getenv("TENANTSTACK_BLOG_API_KEY", "")
+TENANTSTACK_SUPABASE_ANON_KEY = os.getenv("TENANTSTACK_SUPABASE_ANON_KEY", "")
+TENANTSTACK_BLOG_URL          = "https://tsikzygmwawvxheisdhc.supabase.co/functions/v1/blog-api"
 
 # PhysicianPad Blog API
 PHYSICIANPAD_BLOG_API_KEY = os.getenv("PHYSICIANPAD_BLOG_API_KEY", "")
@@ -757,6 +758,7 @@ def write_blog_post(topic: str, status: str = "published") -> dict:
     headers = {
         "Content-Type": "application/json",
         "x-api-key": TENANTSTACK_BLOG_API_KEY,
+        "Authorization": f"Bearer {TENANTSTACK_SUPABASE_ANON_KEY}",
     }
     payload = {
         "title":         post_data["title"],
@@ -785,7 +787,10 @@ def list_blog_posts(status: str = "published") -> list:
     """Fetch recent posts from the TenantStack Blog API."""
     if not TENANTSTACK_BLOG_API_KEY:
         return []
-    headers = {"x-api-key": TENANTSTACK_BLOG_API_KEY}
+    headers = {
+        "x-api-key": TENANTSTACK_BLOG_API_KEY,
+        "Authorization": f"Bearer {TENANTSTACK_SUPABASE_ANON_KEY}",
+    }
     response = requests.get(
         TENANTSTACK_BLOG_URL,
         params={"status": status},
