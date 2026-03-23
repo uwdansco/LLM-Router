@@ -758,7 +758,7 @@ def write_blog_post(topic: str, status: str = "published") -> dict:
     headers = {
         "Content-Type": "application/json",
         "x-api-key": TENANTSTACK_BLOG_API_KEY,
-        "Authorization": f"Bearer {TENANTSTACK_SUPABASE_ANON_KEY}",
+        "Authorization": f"Bearer {TENANTSTACK_SUPABASE_ANON_KEY}",  # correct anon key for tsikzygmwawvxheisdhc
     }
     payload = {
         "title":         post_data["title"],
