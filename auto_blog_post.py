@@ -21,8 +21,8 @@ from dotenv import load_dotenv
 import anthropic
 
 # ── Load environment ──────────────────────────────────────────────────────────
-load_dotenv()
-load_dotenv(Path.home() / ".llm-router.env")
+load_dotenv(override=True)
+load_dotenv(Path.home() / ".llm-router.env", override=False)
 
 ANTHROPIC_API_KEY             = os.getenv("ANTHROPIC_API_KEY", "")
 TENANTSTACK_BLOG_API_KEY      = os.getenv("TENANTSTACK_BLOG_API_KEY", "")
@@ -49,15 +49,46 @@ def slugify(text: str) -> str:
     return text[:80]
 
 
+def safe_json_parse(raw: str) -> dict:
+    """Parse JSON from Claude, with fallback for unescaped HTML double quotes."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Fallback: extract fields via regex (handles unescaped quotes in HTML content)
+    result = {}
+    for key in ["title", "slug", "excerpt", "category", "category_slug", "authorName", "authorRole"]:
+        m = re.search(rf'"{re.escape(key)}"\s*:\s*"((?:[^"\\]|\\.)*)"', raw)
+        if m:
+            result[key] = m.group(1)
+
+    m = re.search(r'"content"\s*:\s*"([\s\S]*?)"\s*[}\n]', raw)
+    if m:
+        result["content"] = m.group(1).replace('\\"', '"')
+    else:
+        idx = raw.find('"content"')
+        if idx >= 0:
+            colon = raw.find(':', idx + 9)
+            quote = raw.find('"', colon + 1)
+            if quote >= 0:
+                last_quote = raw.rfind('"')
+                result["content"] = raw[quote + 1:last_quote]
+
+    if not result.get("title") or not result.get("content"):
+        raise ValueError(f"Could not parse blog post JSON: {raw[:200]}")
+    return result
+
+
 def parse_json(raw: str) -> dict:
-    """Strip markdown fences and parse JSON."""
+    """Strip markdown fences and parse JSON safely."""
     raw = raw.strip()
     if raw.startswith("```"):
         parts = raw.split("```")
         raw = parts[1] if len(parts) > 1 else raw
         if raw.startswith("json"):
             raw = raw[4:]
-    return json.loads(raw.strip())
+    return safe_json_parse(raw.strip())
 
 
 # ── Topic picker ──────────────────────────────────────────────────────────────
@@ -173,7 +204,9 @@ OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
   "excerpt": "2-sentence compelling summary for previews and SEO (under 160 chars)",
   "category_slug": "one of: tips, guides, industry-news, technology, finance, tenant-management, maintenance",
   "content": "<full HTML content using <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em> tags>"
-}"""
+}
+
+CRITICAL JSON RULE: Inside the content HTML, use single quotes for ALL HTML attributes (e.g. href='url', class='name'). Never use double quotes inside HTML attribute values — they will break JSON encoding."""
 
 
 def post_to_tenantstack(topic: str) -> dict:
@@ -310,7 +343,9 @@ OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
   "authorName": "Dr. Sarah Chen",
   "authorRole": "Chief Medical Officer",
   "content": "<full HTML content using <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em> tags>"
-}"""
+}
+
+CRITICAL JSON RULE: Inside the content HTML, use single quotes for ALL HTML attributes (e.g. href='url', class='name'). Never use double quotes inside HTML attribute values — they will break JSON encoding."""
 
 
 def post_to_physicianpad(topic: str) -> dict:
