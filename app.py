@@ -20,9 +20,9 @@ import anthropic
 import openai
 import google.generativeai as genai
 
-# Load from project .env first, then fall back to ~/.llm-router.env
-load_dotenv()
-load_dotenv(Path.home() / ".llm-router.env")
+# Load from project .env first (override=True so .env always wins over system env vars)
+load_dotenv(override=True)
+load_dotenv(Path.home() / ".llm-router.env", override=False)
 
 app = FastAPI(title="Jarvis", version="3.0.0")
 
@@ -150,14 +150,14 @@ def call_gpt4(question: str) -> str:
 
 def call_gemini(question: str) -> str:
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-pro")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     response = model.generate_content(question)
     return response.text
 
 
 def call_perplexity(question: str) -> str:
     payload = {
-        "model": "llama-3.1-sonar-large-128k-online",
+        "model": "sonar-pro",
         "messages": [{"role": "user", "content": question}],
         "max_tokens": 4096,
     }
