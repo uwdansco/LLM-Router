@@ -7,6 +7,7 @@ Google Calendar + Gmail integration.
 
 import os
 import json
+import re
 import base64
 import requests
 from pathlib import Path
@@ -712,7 +713,44 @@ OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
   "excerpt": "2-sentence compelling summary for previews and SEO (under 160 chars)",
   "category_slug": "one of: tips, guides, industry-news, technology, finance, tenant-management, maintenance",
   "content": "<full HTML content using <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em> tags>"
-}"""
+}
+
+CRITICAL JSON RULE: Inside the content HTML, use single quotes for ALL HTML attributes (e.g. href='url', class='name'). Never use double quotes inside HTML attribute values — they will break JSON encoding."""
+
+
+def safe_json_parse(raw: str) -> dict:
+    """Parse JSON from Claude, with fallback for unescaped HTML double quotes."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Fallback: extract simple fields via regex, then grab content separately.
+    # This handles the case where HTML attribute values contain unescaped double quotes.
+    result = {}
+    for key in ["title", "slug", "excerpt", "category", "category_slug", "authorName", "authorRole"]:
+        m = re.search(rf'"{re.escape(key)}"\s*:\s*"((?:[^"\\]|\\.)*)"', raw)
+        if m:
+            result[key] = m.group(1)
+
+    # Content field: find its opening quote, then take everything up to the last `"}` or `",`
+    m = re.search(r'"content"\s*:\s*"([\s\S]*?)"\s*[}\n]', raw)
+    if m:
+        result["content"] = m.group(1).replace('\\"', '"')
+    else:
+        # Aggressive fallback: everything after "content": " to last " in the string
+        idx = raw.find('"content"')
+        if idx >= 0:
+            colon = raw.find(':', idx + 9)
+            quote = raw.find('"', colon + 1)
+            if quote >= 0:
+                last_quote = raw.rfind('"')
+                result["content"] = raw[quote + 1:last_quote]
+
+    if not result.get("title") or not result.get("content"):
+        raise ValueError(f"Could not parse blog post JSON from Claude response: {raw[:200]}")
+
+    return result
 
 
 def slugify(text: str) -> str:
@@ -748,7 +786,7 @@ def write_blog_post(topic: str, status: str = "published") -> dict:
         raw = parts[1] if len(parts) > 1 else raw
         if raw.startswith("json"):
             raw = raw[4:]
-    post_data = json.loads(raw.strip())
+    post_data = safe_json_parse(raw.strip())
 
     # Ensure slug is clean
     if not post_data.get("slug"):
@@ -943,7 +981,9 @@ OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
   "authorName": "Dr. Sarah Chen",
   "authorRole": "Chief Medical Officer",
   "content": "<full HTML content using <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em> tags>"
-}"""
+}
+
+CRITICAL JSON RULE: Inside the content HTML, use single quotes for ALL HTML attributes (e.g. href='url', class='name'). Never use double quotes inside HTML attribute values — they will break JSON encoding."""
 
 
 def write_physicianpad_post(topic: str, status: str = "published") -> dict:
@@ -968,7 +1008,7 @@ def write_physicianpad_post(topic: str, status: str = "published") -> dict:
         raw = parts[1] if len(parts) > 1 else raw
         if raw.startswith("json"):
             raw = raw[4:]
-    post_data = json.loads(raw.strip())
+    post_data = safe_json_parse(raw.strip())
 
     if not post_data.get("slug"):
         post_data["slug"] = slugify(post_data.get("title", topic))
