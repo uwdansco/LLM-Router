@@ -1128,7 +1128,11 @@ GOOGLE_ACTION_HANDLERS = {
 
 @app.post("/api/ask")
 async def ask(request: Request):
-    body = await request.json()
+    import traceback as _tb
+    try:
+        body = await request.json()
+    except Exception as e:
+        return JSONResponse({"error": f"Invalid JSON: {e}"}, status_code=400)
     question = body.get("question", "").strip()
     override_llm = body.get("override_llm", None)
 
@@ -1168,13 +1172,16 @@ async def ask(request: Request):
         except Exception as fallback_error:
             return JSONResponse({"error": f"All LLMs failed: {fallback_error}"}, status_code=500)
 
-    return JSONResponse({
-        "answer": answer,
-        "llm": chosen_llm,
-        "llm_display": LLM_DISPLAY_NAMES[chosen_llm],
-        "llm_color": LLM_COLORS[chosen_llm],
-        "routing_reason": routing_reason,
-    })
+    try:
+        return JSONResponse({
+            "answer": answer,
+            "llm": chosen_llm,
+            "llm_display": LLM_DISPLAY_NAMES.get(chosen_llm, chosen_llm),
+            "llm_color": LLM_COLORS.get(chosen_llm, "#00c8ff"),
+            "routing_reason": routing_reason,
+        })
+    except Exception as e:
+        return JSONResponse({"error": f"Response error: {_tb.format_exc()}"}, status_code=500)
 
 
 @app.post("/api/speak")
