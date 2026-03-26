@@ -601,40 +601,88 @@
 
   // ── Speech recognition ─────────────────────────────────────────────────────
   function toggleMic() {
-    isListening ? stopListening() : startListening();
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
   }
 
   function startListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert('Speech recognition requires Chrome or Edge.'); return; }
+
+    // Stop any playing audio
     jarvisAudio.pause();
+
+    // Clean up any previous recognition instance
+    if (recognition) {
+      try { recognition.onend = null; recognition.stop(); } catch {}
+      recognition = null;
+    }
 
     recognition = new SR();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
 
+    let gotResult = false;
+
     recognition.onstart = () => {
       isListening = true;
       document.getElementById('mic-btn').classList.add('active');
       setOrb('listening');
+      console.log('Mic: listening');
     };
 
     recognition.onresult = (e) => {
-      document.getElementById('question').value = e.results[0][0].transcript;
-      stopListening();
+      gotResult = true;
+      const transcript = e.results[0][0].transcript;
+      console.log('Mic: got result:', transcript);
+      document.getElementById('question').value = transcript;
+      isListening = false;
+      document.getElementById('mic-btn').classList.remove('active');
       sendMessage();
     };
 
-    recognition.onerror = (e) => { if (e.error !== 'aborted') stopListening(); };
-    recognition.onend   = stopListening;
-    recognition.start();
+    recognition.onerror = (e) => {
+      console.log('Mic: error', e.error);
+      if (e.error !== 'aborted') {
+        isListening = false;
+        document.getElementById('mic-btn').classList.remove('active');
+        if (!isLoading) setOrb('idle');
+      }
+    };
+
+    recognition.onend = () => {
+      console.log('Mic: onend (gotResult:', gotResult, ')');
+      // Only reset state if we didn't get a result
+      // (if we did, onresult already handled it)
+      if (!gotResult) {
+        isListening = false;
+        document.getElementById('mic-btn').classList.remove('active');
+        if (!isLoading) setOrb('idle');
+      }
+      recognition = null;
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error('Mic: start failed', e);
+      isListening = false;
+      document.getElementById('mic-btn').classList.remove('active');
+    }
   }
 
   function stopListening() {
     isListening = false;
     document.getElementById('mic-btn').classList.remove('active');
-    if (recognition) { try { recognition.stop(); } catch {} recognition = null; }
+    if (recognition) {
+      recognition.onend = null; // prevent double-fire
+      try { recognition.stop(); } catch {}
+      recognition = null;
+    }
     if (!isLoading) setOrb('idle');
   }
 
