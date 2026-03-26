@@ -1182,6 +1182,21 @@ async def ask(request: Request):
         return JSONResponse({"error": f"Server error: {e}", "traceback": _tb.format_exc()}, status_code=500)
 
 
+@app.post("/api/debug-ask")
+async def debug_ask(request: Request):
+    """Debug endpoint — always returns 200 so Railway doesn't swallow the error."""
+    import traceback as _tb
+    try:
+        body = await request.json()
+        question = body.get("question", "hi")
+        llm, reason = route_question(question)
+        caller = LLM_CALLERS.get(llm, call_claude)
+        answer = caller(question)
+        return JSONResponse({"ok": True, "answer": answer[:200], "llm": llm})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e), "traceback": _tb.format_exc()}, status_code=200)
+
+
 @app.post("/api/speak")
 async def speak(request: Request):
     """Convert text to speech using ElevenLabs and stream back audio."""
