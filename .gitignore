@@ -26,3 +26,12 @@ build/
 
 # Logs
 *.log
+
+# Google OAuth secrets
+client_secret*.json
+token.json
+
+# Generated data
+social_posts/
+sitemaps/
+topic_history.json

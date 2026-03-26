@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#00c8ff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Jarvis" />
+  <link rel="manifest" href="/static/manifest.json" />
+  <link rel="apple-touch-icon" href="/static/icons/jarvis-192x192.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/jarvis-96x96.png" />
   <title>Jarvis</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
@@ -421,10 +428,78 @@
       font-size: 11px;
       color: #3a3a3a;
     }
+
+    /* ── Mobile / PWA responsive ─────────────────────────────────── */
+    @media (max-width: 768px) {
+      header { padding: 12px 16px; }
+      .logo { font-size: 16px; letter-spacing: 4px; }
+      .status-dots { gap: 8px; font-size: 10px; }
+      .body { flex-direction: column; }
+      .sidebar {
+        flex-direction: row;
+        width: 100%;
+        min-width: unset;
+        padding: 12px;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .orb-container { width: 60px; height: 60px; }
+      .orb-ring { width: 60px; height: 60px; }
+      .orb-symbol { font-size: 22px; }
+      .orb-state { font-size: 10px; margin-top: 0; }
+      .mic-btn { width: 36px; height: 36px; font-size: 16px; }
+      .chat-panel { padding: 12px; }
+      .input-bar { padding: 8px 12px; }
+      .input-hint { display: none; }
+      .welcome h2 { font-size: 18px; }
+      .welcome p { font-size: 13px; }
+      .examples { flex-direction: column; gap: 8px; }
+    }
+
+    @media (max-width: 480px) {
+      .status-dots { display: none; }
+      .sidebar { padding: 8px; }
+      .orb-container { width: 48px; height: 48px; }
+      .orb-ring { width: 48px; height: 48px; }
+    }
+
+    /* Safe area for notched phones */
+    @supports (padding-top: env(safe-area-inset-top)) {
+      header { padding-top: calc(12px + env(safe-area-inset-top)); }
+      .input-bar { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+    }
+
+    /* ── Pull-to-refresh ─────────────────────────────────────────── */
+    .pull-indicator {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 0;
+      overflow: hidden;
+      background: var(--surface);
+      color: var(--cyan);
+      font-size: 13px;
+      font-family: 'Inter', system-ui, sans-serif;
+      z-index: 9999;
+      transition: height 0.2s ease;
+    }
+    .pull-indicator.visible { height: 48px; }
+    .pull-indicator.refreshing { height: 48px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pull-spinner { animation: spin 0.8s linear infinite; display: inline-block; margin-right: 8px; }
   </style>
 </head>
 <body>
 
+<div class="pull-indicator" id="pull-indicator"><span id="pull-text">Pull to refresh</span></div>
+<audio id="jarvis-audio" preload="auto" playsinline></audio>
 <header>
   <div class="logo">Jarvis</div>
   <div class="status-dots">
@@ -489,7 +564,7 @@
   let isLoading = false;
   let recognition = null;
   let isListening = false;
-  let currentAudio = null;
+  // currentAudio replaced by persistent #jarvis-audio element
 
   // ── Clock is gone, but health check stays ─────────────────────────────────
   async function checkHealth() {
@@ -532,7 +607,7 @@
   function startListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert('Speech recognition requires Chrome or Edge.'); return; }
-    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    jarvisAudio.pause();
 
     recognition = new SR();
     recognition.continuous = false;
@@ -563,7 +638,39 @@
     if (!isLoading) setOrb('idle');
   }
 
-  // ── ElevenLabs TTS ─────────────────────────────────────────────────────────
+  // ── ElevenLabs TTS (iOS/Android compatible) ────────────────────────────────
+  // Use a persistent <audio> element — iOS Safari requires this pattern.
+  // We "prime" it on first user tap so the browser trusts future .play() calls.
+  const jarvisAudio = document.getElementById('jarvis-audio');
+  let audioPrimed = false;
+  let lastBlobUrl = null;
+
+  function primeAudio() {
+    if (audioPrimed) return;
+    // Play a tiny silent WAV to unlock the audio element for future use
+    jarvisAudio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
+    jarvisAudio.play().then(() => {
+      audioPrimed = true;
+      console.log('Audio primed for TTS');
+    }).catch(() => {
+      console.log('Audio prime failed — will retry on next tap');
+    });
+  }
+
+  // Prime on ANY user interaction
+  ['click', 'touchstart', 'touchend', 'keydown'].forEach(evt => {
+    document.addEventListener(evt, primeAudio, { once: false, passive: true });
+  });
+
+  jarvisAudio.onended = () => {
+    setOrb('idle');
+    if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
+  };
+  jarvisAudio.onerror = (e) => {
+    console.error('Audio playback error:', e);
+    setOrb('idle');
+  };
+
   async function speak(text) {
     setOrb('speaking');
     try {
@@ -572,14 +679,67 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       });
-      if (!res.ok) { setOrb('idle'); return; }
-      const url = URL.createObjectURL(await res.blob());
-      currentAudio = new Audio(url);
-      currentAudio.onended = () => { setOrb('idle'); URL.revokeObjectURL(url); };
-      currentAudio.onerror = () => setOrb('idle');
-      await currentAudio.play();
-    } catch { setOrb('idle'); }
+      if (!res.ok) {
+        console.error('TTS error:', res.status);
+        setOrb('idle');
+        return;
+      }
+      const blob = await res.blob();
+      if (blob.size < 100) { console.error('TTS: empty audio'); setOrb('idle'); return; }
+
+      // Clean up previous blob
+      if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+      lastBlobUrl = URL.createObjectURL(blob);
+
+      // Reuse the same <audio> element (critical for iOS)
+      jarvisAudio.src = lastBlobUrl;
+      jarvisAudio.load();
+      const p = jarvisAudio.play();
+      if (p) p.catch(err => {
+        console.error('Play blocked:', err.message);
+        // Fallback: show a "tap to hear" button
+        setOrb('idle');
+      });
+    } catch (e) { console.error('speak() error:', e); setOrb('idle'); }
   }
+
+  // ── Pull-to-refresh ─────────────────────────────────────────────────────────
+  (function() {
+    const indicator = document.getElementById('pull-indicator');
+    const pullText = document.getElementById('pull-text');
+    let startY = 0;
+    let pulling = false;
+
+    document.addEventListener('touchstart', (e) => {
+      if (window.scrollY === 0 || document.querySelector('.chat-panel')?.scrollTop === 0) {
+        startY = e.touches[0].clientY;
+        pulling = true;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!pulling) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy > 30 && dy < 150) {
+        indicator.classList.add('visible');
+        pullText.textContent = dy > 80 ? 'Release to refresh' : 'Pull to refresh';
+      } else if (dy <= 0) {
+        indicator.classList.remove('visible');
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      if (!pulling) return;
+      pulling = false;
+      if (pullText.textContent === 'Release to refresh') {
+        indicator.classList.add('refreshing');
+        pullText.innerHTML = '<span class="pull-spinner">&#8635;</span> Refreshing...';
+        setTimeout(() => location.reload(), 500);
+      } else {
+        indicator.classList.remove('visible');
+      }
+    }, { passive: true });
+  })();
 
   // ── Render helpers ─────────────────────────────────────────────────────────
   function esc(t) {
@@ -688,6 +848,13 @@
     isLoading = false;
     document.getElementById('send-btn').disabled = false;
     ta.focus();
+  }
+
+  // ── PWA Service Worker ──────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/service-worker.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW registration failed:', err));
   }
 </script>
 </body>

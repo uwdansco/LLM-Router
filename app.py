@@ -16,6 +16,7 @@ from email.mime.text import MIMEText
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import anthropic
 import openai
@@ -33,6 +34,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Static files (PWA assets, icons, manifest, service worker) ──
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 # ─────────────────────────────────────────────
 # API KEYS (loaded from .env)
@@ -1246,7 +1250,7 @@ async def health():
 @app.get("/", response_class=HTMLResponse)
 async def root():
     html_path = Path(__file__).parent / "index.html"
-    return HTMLResponse(content=html_path.read_text(), status_code=200)
+    return HTMLResponse(content=html_path.read_text(encoding="utf-8"), status_code=200)
 
 
 # ─────────────────────────────────────────────
@@ -1256,5 +1260,5 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
-    print(f"\n🤖 Jarvis running at http://localhost:{port}\n")
+    print(f"\n[JARVIS] Running at http://localhost:{port}\n")
     uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
