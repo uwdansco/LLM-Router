@@ -1131,48 +1131,45 @@ async def ask(request: Request):
     import traceback as _tb
     try:
         body = await request.json()
-    except Exception as e:
-        return JSONResponse({"error": f"Invalid JSON: {e}"}, status_code=400)
-    question = body.get("question", "").strip()
-    override_llm = body.get("override_llm", None)
+        question = body.get("question", "").strip()
+        override_llm = body.get("override_llm", None)
 
-    if not question:
-        return JSONResponse({"error": "No question provided"}, status_code=400)
+        if not question:
+            return JSONResponse({"error": "No question provided"}, status_code=400)
 
-    if override_llm and (override_llm in LLM_CALLERS or override_llm in GOOGLE_ACTION_HANDLERS):
-        chosen_llm = override_llm
-        routing_reason = "Manually selected"
-    else:
-        chosen_llm, routing_reason = route_question(question)
+        if override_llm and (override_llm in LLM_CALLERS or override_llm in GOOGLE_ACTION_HANDLERS):
+            chosen_llm = override_llm
+            routing_reason = "Manually selected"
+        else:
+            chosen_llm, routing_reason = route_question(question)
 
-    # Handle Google Calendar / Gmail actions
-    if chosen_llm in GOOGLE_ACTION_HANDLERS:
+        # Handle Google Calendar / Gmail actions
+        if chosen_llm in GOOGLE_ACTION_HANDLERS:
+            try:
+                answer = GOOGLE_ACTION_HANDLERS[chosen_llm](question)
+            except Exception as e:
+                answer = f"Something went wrong: {e}"
+            return JSONResponse({
+                "answer": answer,
+                "llm": chosen_llm,
+                "llm_display": LLM_DISPLAY_NAMES.get(chosen_llm, chosen_llm),
+                "llm_color": LLM_COLORS.get(chosen_llm, "#00c8ff"),
+                "routing_reason": routing_reason,
+            })
+
+        # Handle LLM routing
+        caller = LLM_CALLERS.get(chosen_llm, call_claude)
         try:
-            answer = GOOGLE_ACTION_HANDLERS[chosen_llm](question)
+            answer = caller(question)
         except Exception as e:
-            answer = f"Something went wrong: {e}"
-        return JSONResponse({
-            "answer": answer,
-            "llm": chosen_llm,
-            "llm_display": LLM_DISPLAY_NAMES[chosen_llm],
-            "llm_color": LLM_COLORS[chosen_llm],
-            "routing_reason": routing_reason,
-        })
+            error_msg = str(e)
+            try:
+                answer = call_claude(question)
+                chosen_llm = "claude"
+                routing_reason = f"Fell back to Claude after error: {error_msg}"
+            except Exception as fallback_error:
+                return JSONResponse({"error": f"All LLMs failed: {fallback_error}"}, status_code=500)
 
-    # Handle LLM routing
-    caller = LLM_CALLERS.get(chosen_llm, call_claude)
-    try:
-        answer = caller(question)
-    except Exception as e:
-        error_msg = str(e)
-        try:
-            answer = call_claude(question)
-            chosen_llm = "claude"
-            routing_reason = f"Fell back to Claude after error: {error_msg}"
-        except Exception as fallback_error:
-            return JSONResponse({"error": f"All LLMs failed: {fallback_error}"}, status_code=500)
-
-    try:
         return JSONResponse({
             "answer": answer,
             "llm": chosen_llm,
@@ -1181,7 +1178,8 @@ async def ask(request: Request):
             "routing_reason": routing_reason,
         })
     except Exception as e:
-        return JSONResponse({"error": f"Response error: {_tb.format_exc()}"}, status_code=500)
+        print(f"FATAL /api/ask error: {_tb.format_exc()}")
+        return JSONResponse({"error": f"Server error: {e}", "traceback": _tb.format_exc()}, status_code=500)
 
 
 @app.post("/api/speak")
