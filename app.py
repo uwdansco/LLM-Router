@@ -28,6 +28,48 @@ load_dotenv(Path.home() / ".llm-router.env", override=False)
 
 app = FastAPI(title="Jarvis", version="3.0.0")
 
+
+# ─────────────────────────────────────────────
+# SCHEDULED BLOG POSTING (runs in-process on Railway)
+# ─────────────────────────────────────────────
+
+def _run_daily_blog():
+    """Run auto_blog_post.py as a subprocess. Called by APScheduler."""
+    import subprocess, sys
+    print(f"[CRON] Daily blog post triggered at {datetime.now()}", flush=True)
+    try:
+        result = subprocess.run(
+            [sys.executable, "auto_blog_post.py"],
+            capture_output=True, text=True, timeout=600,
+            cwd=str(Path(__file__).parent),
+            env={**os.environ},
+        )
+        print(f"[CRON] Finished (exit={result.returncode})", flush=True)
+        if result.stdout:
+            for line in result.stdout.strip().split("\n")[-5:]:
+                print(f"[CRON] {line}", flush=True)
+        if result.returncode != 0 and result.stderr:
+            print(f"[CRON] STDERR: {result.stderr[-500:]}", flush=True)
+    except Exception as e:
+        print(f"[CRON] Error: {e}", flush=True)
+
+
+@app.on_event("startup")
+def start_scheduler():
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+
+    scheduler = BackgroundScheduler()
+    # Run Mon-Fri at 8:00 AM Pacific (UTC-7 / UTC-8)
+    scheduler.add_job(
+        _run_daily_blog,
+        CronTrigger(day_of_week="mon-fri", hour=8, minute=3, timezone="US/Pacific"),
+        id="daily_blog",
+        replace_existing=True,
+    )
+    scheduler.start()
+    print("[JARVIS] Blog scheduler started — Mon-Fri 8:03 AM Pacific", flush=True)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
