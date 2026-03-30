@@ -608,13 +608,11 @@ PHYSICIANPAD_SITEMAP_URL = "https://blog.physicianpad.com/sitemap.xml"
 
 
 def submit_urls_indexnow(post_url: str, sitemap_url: str, site_host: str, brand: str):
-    """Submit new post URL + sitemap to IndexNow for rapid Bing/Yandex/DuckDuckGo indexing.
+    """Submit new post URL to IndexNow for rapid Bing/Yandex/DuckDuckGo indexing.
 
-    NOTE: IndexNow requires a key verification file at https://{host}/{key}.txt
-    containing the key text. You must host this file for verification to work:
-      - TenantStack: https://blog.tenantstack.com/jarvisindexkey.txt
-      - PhysicianPad: https://blog.physicianpad.com/jarvisindexkey.txt
-    Each file should contain just the text: jarvisindexkey
+    NOTE: IndexNow requires ALL URLs in urlList to match the host field.
+    The sitemap URL may be on a different domain (e.g. Supabase), so we only
+    submit the post URL itself.
     """
     key = "jarvisindexkey"
     try:
@@ -622,7 +620,7 @@ def submit_urls_indexnow(post_url: str, sitemap_url: str, site_host: str, brand:
             "host": site_host,
             "key": key,
             "keyLocation": f"https://{site_host}/{key}.txt",
-            "urlList": [post_url, sitemap_url],
+            "urlList": [post_url],
         }
         r = requests.post(
             "https://api.indexnow.org/indexnow",
