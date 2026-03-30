@@ -1264,6 +1264,34 @@ async def health():
 
 
 # ─────────────────────────────────────────────
+# CRON — Daily auto blog poster
+# ─────────────────────────────────────────────
+
+CRON_SECRET = os.getenv("CRON_SECRET", "jarvis-cron-2026")
+
+@app.post("/api/cron/blog")
+async def cron_blog(request: Request):
+    """Trigger daily blog posting. Protected by CRON_SECRET header."""
+    auth = request.headers.get("x-cron-secret", "")
+    if auth != CRON_SECRET:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    import subprocess, sys
+    result = subprocess.run(
+        [sys.executable, "auto_blog_post.py"],
+        capture_output=True, text=True, timeout=600,
+        cwd=str(Path(__file__).parent),
+        env={**os.environ},
+    )
+    return JSONResponse({
+        "status": "ok" if result.returncode == 0 else "error",
+        "returncode": result.returncode,
+        "stdout": result.stdout[-2000:] if result.stdout else "",
+        "stderr": result.stderr[-1000:] if result.stderr else "",
+    })
+
+
+# ─────────────────────────────────────────────
 # SERVE THE FRONTEND
 # ─────────────────────────────────────────────
 
