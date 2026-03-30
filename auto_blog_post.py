@@ -364,8 +364,8 @@ def post_to_tenantstack(topic: str) -> dict:
         post["slug"] = slugify(post.get("title", topic))
 
     # Append date to slug to avoid duplicates
-    date_suffix = datetime.now().strftime("-%Y%m%d")
-    if not post["slug"].endswith(date_suffix):
+    date_suffix = datetime.now().strftime("-%Y%m%d-%H%M")
+    if not any(post["slug"].endswith(datetime.now().strftime(f)) for f in ["-%Y%m%d", "-%Y%m%d-%H%M"]):
         post["slug"] += date_suffix
 
     # Inject structured data (FAQ + Article schema) into content
@@ -556,8 +556,8 @@ def post_to_physicianpad(topic: str) -> dict:
         post["slug"] = slugify(post.get("title", topic))
 
     # Append date to slug to avoid duplicates
-    date_suffix = datetime.now().strftime("-%Y%m%d")
-    if not post["slug"].endswith(date_suffix):
+    date_suffix = datetime.now().strftime("-%Y%m%d-%H%M")
+    if not any(post["slug"].endswith(datetime.now().strftime(f)) for f in ["-%Y%m%d", "-%Y%m%d-%H%M"]):
         post["slug"] += date_suffix
 
     # Inject structured data (FAQ + Article schema) into content
