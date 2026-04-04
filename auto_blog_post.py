@@ -854,6 +854,33 @@ def share_to_social_media(post: dict, brand: str, blog_url: str):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+def already_posted_today(blog: str) -> bool:
+    """Check if we already published a post today to avoid duplicates."""
+    today_str = datetime.now().strftime("%Y%m%d")
+    try:
+        if blog == "TenantStack":
+            r = requests.get(TENANTSTACK_BLOG_URL,
+                headers={"x-api-key": TENANTSTACK_BLOG_API_KEY,
+                         "Authorization": f"Bearer {TENANTSTACK_SUPABASE_ANON_KEY}"},
+                timeout=15)
+            if r.ok:
+                data = r.json()
+                posts = data.get("posts", data) if isinstance(data, dict) else data
+                if isinstance(posts, list):
+                    return any(today_str in p.get("slug", "") for p in posts)
+        elif blog == "PhysicianPad":
+            r = requests.get(PHYSICIANPAD_BLOG_URL,
+                headers={"X-Api-Key": PHYSICIANPAD_BLOG_API_KEY},
+                timeout=15)
+            if r.ok:
+                posts = r.json()
+                if isinstance(posts, list):
+                    return any(today_str in p.get("slug", "") for p in posts)
+    except Exception:
+        pass
+    return False
+
+
 def main():
     log(f"=== Daily Blog Post + Social + Sitemap -- {today} ===")
     errors = []
@@ -861,25 +888,31 @@ def main():
 
     # TenantStack
     if TENANTSTACK_BLOG_API_KEY:
-        try:
-            topic = pick_topic("TenantStack property management", TENANTSTACK_TOPICS)
-            post = post_to_tenantstack(topic)
-            published_posts.append(("TenantStack", post, "https://blog.tenantstack.com"))
-        except Exception as e:
-            log(f"TenantStack: Error - {e}")
-            errors.append(f"TenantStack: {e}")
+        if already_posted_today("TenantStack"):
+            log("TenantStack: Already posted today - skipping")
+        else:
+            try:
+                topic = pick_topic("TenantStack property management", TENANTSTACK_TOPICS)
+                post = post_to_tenantstack(topic)
+                published_posts.append(("TenantStack", post, "https://blog.tenantstack.com"))
+            except Exception as e:
+                log(f"TenantStack: Error - {e}")
+                errors.append(f"TenantStack: {e}")
     else:
         log("TenantStack: TENANTSTACK_BLOG_API_KEY not set - skipping")
 
     # PhysicianPad
     if PHYSICIANPAD_BLOG_API_KEY:
-        try:
-            topic = pick_topic("PhysicianPad medical scribing", PHYSICIANPAD_TOPICS)
-            post = post_to_physicianpad(topic)
-            published_posts.append(("PhysicianPad", post, "https://blog.physicianpad.com"))
-        except Exception as e:
-            log(f"PhysicianPad: Error - {e}")
-            errors.append(f"PhysicianPad: {e}")
+        if already_posted_today("PhysicianPad"):
+            log("PhysicianPad: Already posted today - skipping")
+        else:
+            try:
+                topic = pick_topic("PhysicianPad medical scribing", PHYSICIANPAD_TOPICS)
+                post = post_to_physicianpad(topic)
+                published_posts.append(("PhysicianPad", post, "https://blog.physicianpad.com"))
+            except Exception as e:
+                log(f"PhysicianPad: Error - {e}")
+                errors.append(f"PhysicianPad: {e}")
     else:
         log("PhysicianPad: PHYSICIANPAD_BLOG_API_KEY not set - skipping")
 
