@@ -286,6 +286,14 @@ ADVANCED SEO — MUST INCLUDE ALL OF THESE:
 7. CALL-TO-ACTION: End with a compelling CTA section linking to TenantStack:
    <section id='cta'><h2>Ready to Simplify Your Property Management?</h2><p>...mention TenantStack features relevant to the topic...</p><a href='https://tenantstack.com'>Try TenantStack Free</a></section>
 
+HTML FORMATTING RULES — CRITICAL FOR READABILITY:
+- ALWAYS use <ul> and <li> tags for any list of items. NEVER write lists as consecutive <p> tags with bold labels. Example of WRONG: <p><strong>Item:</strong> description</p>. Example of RIGHT: <ul><li><strong>Item:</strong> description</li></ul>
+- Every <h2> must be wrapped in its own <section> with the matching id
+- Add a blank <p>&nbsp;</p> after the </nav> table of contents to create spacing
+- Keep paragraphs short (2-4 sentences). Each paragraph gets its own <p> tag
+- Use <blockquote> for any standout quotes or key takeaways
+- Use <h3> for sub-sections within an <h2> section
+
 OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
 {
   "title": "Display title here",
@@ -521,6 +529,14 @@ ADVANCED SEO — MUST INCLUDE ALL OF THESE:
 
 7. CALL-TO-ACTION: End with a compelling CTA section linking to PhysicianPad:
    <section id='cta'><h2>Spend Less Time Charting, More Time With Patients</h2><p>...mention PhysicianPad features relevant to the topic...</p><a href='https://physicianpad.com'>Try PhysicianPad Free</a></section>
+
+HTML FORMATTING RULES — CRITICAL FOR READABILITY:
+- ALWAYS use <ul> and <li> tags for any list of items. NEVER write lists as consecutive <p> tags with bold labels. Example of WRONG: <p><strong>Item:</strong> description</p>. Example of RIGHT: <ul><li><strong>Item:</strong> description</li></ul>
+- Every <h2> must be wrapped in its own <section> with the matching id
+- Add a blank <p>&nbsp;</p> after the </nav> table of contents to create spacing
+- Keep paragraphs short (2-4 sentences). Each paragraph gets its own <p> tag
+- Use <blockquote> for any standout quotes or key takeaways
+- Use <h3> for sub-sections within an <h2> section
 
 OUTPUT FORMAT — respond ONLY with valid JSON, no markdown fences:
 {
