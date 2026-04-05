@@ -25,11 +25,15 @@ load_dotenv(override=True)
 load_dotenv(Path.home() / ".llm-router.env", override=False)
 
 ANTHROPIC_API_KEY             = os.getenv("ANTHROPIC_API_KEY", "")
+GOOGLE_API_KEY                = os.getenv("GOOGLE_API_KEY", "")
 TENANTSTACK_BLOG_API_KEY      = os.getenv("TENANTSTACK_BLOG_API_KEY", "")
 TENANTSTACK_SUPABASE_ANON_KEY = os.getenv("TENANTSTACK_SUPABASE_ANON_KEY", "")
 TENANTSTACK_BLOG_URL          = "https://tsikzygmwawvxheisdhc.supabase.co/functions/v1/blog-api"
+TENANTSTACK_SUPABASE_PROJECT  = "tsikzygmwawvxheisdhc"
+TENANTSTACK_COVER_BUCKET      = os.getenv("TENANTSTACK_COVER_BUCKET", "blog-covers")
 PHYSICIANPAD_BLOG_API_KEY = os.getenv("PHYSICIANPAD_BLOG_API_KEY", "")
 PHYSICIANPAD_BLOG_URL     = "https://blog.physicianpad.com/api/admin/posts"
+NANOBANANA_FALLBACK       = os.getenv("NANOBANANA_FALLBACK", "").lower() in ("1", "true", "yes")
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 today  = datetime.now().strftime("%A, %B %d, %Y")
@@ -412,8 +416,88 @@ PHYSICIANPAD_IMAGE_POOL = {
 }
 
 
+def _gemini_generate_cover(topic: str, brand: str) -> bytes:
+    """Call Gemini 2.5 Flash Image (nanobanana) to generate a custom cover image.
+    Returns raw PNG bytes, or empty bytes on failure."""
+    if not GOOGLE_API_KEY:
+        return b""
+    try:
+        style = ("photorealistic, professional, modern property-management / real estate aesthetic"
+                 if brand == "TenantStack"
+                 else "photorealistic, professional, modern healthcare / clinical aesthetic")
+        prompt = (
+            f"A 1200x630 blog cover image for an article titled: '{topic}'. "
+            f"Style: {style}. Clean composition, soft natural light, no text, no logos, no watermarks. "
+            f"Brand: {brand}."
+        )
+        # Use REST API directly — avoids SDK version drift
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-2.5-flash-image-preview:generateContent?key={GOOGLE_API_KEY}"
+        )
+        body = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseModalities": ["IMAGE"]},
+        }
+        r = requests.post(url, json=body, timeout=60)
+        r.raise_for_status()
+        data = r.json()
+        for part in data.get("candidates", [{}])[0].get("content", {}).get("parts", []):
+            inline = part.get("inlineData") or part.get("inline_data")
+            if inline and inline.get("data"):
+                import base64
+                return base64.b64decode(inline["data"])
+    except Exception as e:
+        log(f"Nanobanana: Gemini image gen failed - {e}")
+    return b""
+
+
+def _upload_to_supabase_storage(image_bytes: bytes, filename: str) -> str:
+    """Upload image to TenantStack's Supabase storage bucket. Returns public URL, or empty string."""
+    if not TENANTSTACK_SUPABASE_ANON_KEY:
+        return ""
+    try:
+        upload_url = (
+            f"https://{TENANTSTACK_SUPABASE_PROJECT}.supabase.co/storage/v1/object/"
+            f"{TENANTSTACK_COVER_BUCKET}/{filename}"
+        )
+        r = requests.post(
+            upload_url,
+            data=image_bytes,
+            headers={
+                "Authorization": f"Bearer {TENANTSTACK_SUPABASE_ANON_KEY}",
+                "apikey":        TENANTSTACK_SUPABASE_ANON_KEY,
+                "Content-Type":  "image/png",
+                "x-upsert":      "true",
+            },
+            timeout=30,
+        )
+        if r.status_code in (200, 201):
+            return (f"https://{TENANTSTACK_SUPABASE_PROJECT}.supabase.co/storage/v1/object/"
+                    f"public/{TENANTSTACK_COVER_BUCKET}/{filename}")
+        log(f"Nanobanana: Supabase upload failed {r.status_code} - {r.text[:200]}")
+    except Exception as e:
+        log(f"Nanobanana: Supabase upload error - {e}")
+    return ""
+
+
+def _nanobanana_cover_url(topic: str, brand: str) -> str:
+    """Generate a custom cover via Gemini + upload to Supabase storage. Empty on failure."""
+    image_bytes = _gemini_generate_cover(topic, brand)
+    if not image_bytes:
+        return ""
+    safe_topic = re.sub(r"[^a-z0-9-]+", "-", topic.lower())[:40].strip("-")
+    filename = f"{brand.lower()}/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_topic}.png"
+    url = _upload_to_supabase_storage(image_bytes, filename)
+    if url:
+        log(f"Nanobanana ({brand}): generated custom cover -> {url}")
+    return url
+
+
 def generate_cover_image_url(topic: str, brand: str) -> str:
-    """Pick a relevant Unsplash cover image from the curated pool based on the topic."""
+    """Pick a relevant Unsplash cover image from the curated pool based on the topic.
+    If no keyword matches AND NANOBANANA_FALLBACK is enabled, generate a custom
+    image via Gemini and upload to Supabase storage."""
     pool = PHYSICIANPAD_IMAGE_POOL if brand == "PhysicianPad" else TENANTSTACK_IMAGE_POOL
     topic_lower = topic.lower()
     photo_id = pool["default"]
@@ -425,6 +509,14 @@ def generate_cover_image_url(topic: str, brand: str) -> str:
             photo_id = pid
             matched_key = key
             break
+
+    if matched_key == "default" and NANOBANANA_FALLBACK:
+        log(f"Cover image ({brand}): no keyword match — trying nanobanana fallback")
+        custom_url = _nanobanana_cover_url(topic, brand)
+        if custom_url:
+            return custom_url
+        log(f"Cover image ({brand}): nanobanana failed, using default stock photo")
+
     log(f"Cover image ({brand}): matched '{matched_key}' -> {photo_id}")
     return f"https://images.unsplash.com/{photo_id}?w=1200&h=630&fit=crop&q=80"
 
