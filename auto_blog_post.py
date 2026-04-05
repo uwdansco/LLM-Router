@@ -280,8 +280,7 @@ ADVANCED SEO — MUST INCLUDE ALL OF THESE:
 
 5. SEMANTIC HTML: Wrap the full content in <article> tags. Use <section> for each major section. Use <strong> to bold key phrases that contain target keywords (signals relevance to Google).
 
-6. IMAGE ALT TEXT PLACEHOLDERS: Include 2-3 image placeholders with SEO-optimized alt text:
-   <img src='/images/DESCRIPTIVE-NAME.webp' alt='keyword-rich description of image' loading='lazy' />
+6. (A cover image is set automatically via the post's featured_image/coverImage field — do NOT include inline <img> tags in the content. Broken image placeholders hurt SEO and UX.)
 
 7. CALL-TO-ACTION: End with a compelling CTA section linking to TenantStack:
    <section id='cta'><h2>Ready to Simplify Your Property Management?</h2><p>...mention TenantStack features relevant to the topic...</p><a href='https://tenantstack.com'>Try TenantStack Free</a></section>
@@ -357,6 +356,79 @@ def build_article_schema(post: dict, page_url: str, publisher: str, logo_url: st
     return f"<script type='application/ld+json'>{json.dumps(schema)}</script>"
 
 
+# Curated Unsplash photo IDs by topic keyword — reliable, permanent URLs.
+# These are verified stock photos that match each niche.
+TENANTSTACK_IMAGE_POOL = {
+    "tenant":      "photo-1522708323590-d24dbb6b0267",  # tenant with keys
+    "screening":   "photo-1521791136064-7986c2920216",  # interview handshake
+    "rent":        "photo-1554224155-6726b3ff858f",     # money / finance
+    "payment":     "photo-1554224155-6726b3ff858f",
+    "maintenance": "photo-1581094794329-c8112a89af12",  # maintenance tools
+    "repair":      "photo-1581094794329-c8112a89af12",
+    "eviction":    "photo-1558618666-fcd25c85cd64",     # gavel / legal
+    "legal":       "photo-1589994965851-a8f479c573a9",  # legal docs
+    "law":         "photo-1589994965851-a8f479c573a9",
+    "tax":         "photo-1554224154-26032ffc0d07",     # finance docs
+    "landlord":    "photo-1560520653-9e0e4c89eb11",     # property mgmt
+    "listing":     "photo-1502672260266-1c1ef2d93688",  # apartment interior
+    "marketing":   "photo-1460925895917-afdab827c52f",  # marketing analytics
+    "scale":       "photo-1486406146926-c627a92ad1ab",  # city skyline
+    "portfolio":   "photo-1486406146926-c627a92ad1ab",
+    "AI":          "photo-1677442136019-21780ecad995",  # AI technology
+    "ai":          "photo-1677442136019-21780ecad995",
+    "automation":  "photo-1677442136019-21780ecad995",
+    "inspection":  "photo-1560448204-e02f11c3d0e2",     # home inspection
+    "lease":       "photo-1554224155-8d04cb21cd6c",     # signing contract
+    "default":     "photo-1560518883-ce09059eeffa",     # modern apartment building
+}
+
+PHYSICIANPAD_IMAGE_POOL = {
+    "burnout":     "photo-1579684385127-1ef15d508118",  # tired doctor
+    "scribe":      "photo-1576091160550-2173dba999ef",  # doctor typing
+    "charting":    "photo-1505751172876-fa1923c5c528",  # medical records
+    "notes":       "photo-1505751172876-fa1923c5c528",
+    "therapist":   "photo-1573497620053-ea5300f94f21",  # therapy session
+    "therapy":     "photo-1573497620053-ea5300f94f21",
+    "mental":      "photo-1573497620053-ea5300f94f21",
+    "dentist":     "photo-1606811971618-4486d14f3f99",  # dental office
+    "dental":      "photo-1606811971618-4486d14f3f99",
+    "chiropract":  "photo-1519824145371-296894a0daa9",  # chiropractic
+    "EHR":         "photo-1516549655169-df83a0774514",  # EHR screen
+    "telehealth":  "photo-1584515933487-779824d29309",  # telehealth video call
+    "psychiatr":   "photo-1573497620053-ea5300f94f21",
+    "billing":     "photo-1554224154-26032ffc0d07",     # medical billing
+    "coding":      "photo-1554224154-26032ffc0d07",
+    "patient":     "photo-1584516150909-c43483ee7932",  # doctor patient
+    "primary":     "photo-1584982751601-97dcc096659c",  # family doctor
+    "SOAP":        "photo-1576091160550-2173dba999ef",
+    "AI":          "photo-1551288049-bebda4e38f71",     # AI healthcare
+    "ai":          "photo-1551288049-bebda4e38f71",
+    "ambient":     "photo-1551288049-bebda4e38f71",
+    "ROI":         "photo-1554224155-6726b3ff858f",     # finance / ROI
+    "small":       "photo-1519494026892-80bbd2d6fd0d",  # small practice
+    "onboard":     "photo-1521737604893-d14cc237f11d",  # onboarding training
+    "efficiency":  "photo-1576091160399-112ba8d25d1d",
+    "default":     "photo-1576091160399-112ba8d25d1d",  # stethoscope / medical
+}
+
+
+def generate_cover_image_url(topic: str, brand: str) -> str:
+    """Pick a relevant Unsplash cover image from the curated pool based on the topic."""
+    pool = PHYSICIANPAD_IMAGE_POOL if brand == "PhysicianPad" else TENANTSTACK_IMAGE_POOL
+    topic_lower = topic.lower()
+    photo_id = pool["default"]
+    matched_key = "default"
+    for key, pid in pool.items():
+        if key == "default":
+            continue
+        if key.lower() in topic_lower:
+            photo_id = pid
+            matched_key = key
+            break
+    log(f"Cover image ({brand}): matched '{matched_key}' -> {photo_id}")
+    return f"https://images.unsplash.com/{photo_id}?w=1200&h=630&fit=crop&q=80"
+
+
 def post_to_tenantstack(topic: str) -> dict:
     log(f"TenantStack: writing post on '{topic}'...")
     msg = client.messages.create(
@@ -382,19 +454,23 @@ def post_to_tenantstack(topic: str) -> dict:
     article_schema = build_article_schema(post, page_url, "TenantStack", "https://tenantstack.com/logo.png")
     content = post["content"] + "\n" + faq_schema + "\n" + article_schema
 
+    cover_url = generate_cover_image_url(topic, "TenantStack")
+    log(f"TenantStack: cover image -> {cover_url}")
+
     headers = {
         "Content-Type": "application/json",
         "x-api-key": TENANTSTACK_BLOG_API_KEY,
         "Authorization": f"Bearer {TENANTSTACK_SUPABASE_ANON_KEY}",
     }
     payload = {
-        "title":         post.get("meta_title", post["title"]),
-        "slug":          post["slug"],
-        "excerpt":       post.get("excerpt", ""),
-        "content":       content,
-        "category_slug": post.get("category_slug", "tips"),
-        "author":        "Jarvis",
-        "status":        "published",
+        "title":             post.get("meta_title", post["title"]),
+        "slug":              post["slug"],
+        "excerpt":           post.get("excerpt", ""),
+        "content":           content,
+        "category_slug":     post.get("category_slug", "tips"),
+        "author":            "Jarvis",
+        "status":            "published",
+        "featured_image_url": cover_url,
     }
     resp = requests.post(TENANTSTACK_BLOG_URL, json=payload, headers=headers, timeout=60)
     resp.raise_for_status()
@@ -524,8 +600,7 @@ ADVANCED SEO — MUST INCLUDE ALL OF THESE:
 
 5. SEMANTIC HTML: Wrap the full content in <article> tags. Use <section> for each major section. Use <strong> to bold key phrases that contain target keywords (signals relevance to Google).
 
-6. IMAGE ALT TEXT PLACEHOLDERS: Include 2-3 image placeholders with SEO-optimized alt text:
-   <img src='/images/DESCRIPTIVE-NAME.webp' alt='keyword-rich description of image' loading='lazy' />
+6. (A cover image is set automatically via the post's featured_image/coverImage field — do NOT include inline <img> tags in the content. Broken image placeholders hurt SEO and UX.)
 
 7. CALL-TO-ACTION: End with a compelling CTA section linking to PhysicianPad:
    <section id='cta'><h2>Spend Less Time Charting, More Time With Patients</h2><p>...mention PhysicianPad features relevant to the topic...</p><a href='https://physicianpad.com'>Try PhysicianPad Free</a></section>
@@ -587,6 +662,9 @@ def post_to_physicianpad(topic: str) -> dict:
     word_count = len(content.split())
     read_time  = f"{max(1, round(word_count / 200))} min read"
 
+    cover_url = generate_cover_image_url(topic, "PhysicianPad")
+    log(f"PhysicianPad: cover image -> {cover_url}")
+
     headers = {"Content-Type": "application/json", "X-Api-Key": PHYSICIANPAD_BLOG_API_KEY}
     payload = {
         "title":      post.get("meta_title", post["title"]),
@@ -599,6 +677,7 @@ def post_to_physicianpad(topic: str) -> dict:
         "authorRole": post.get("authorRole", "Chief Medical Officer"),
         "readTime":   read_time,
         "featured":   False,
+        "coverImage": cover_url,
     }
     resp = requests.post(PHYSICIANPAD_BLOG_URL, json=payload, headers=headers, timeout=60)
     resp.raise_for_status()
